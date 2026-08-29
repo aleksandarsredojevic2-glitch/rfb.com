@@ -464,7 +464,9 @@ const port = window.location.port ? `:${window.location.port}` : '';
 // Prepoznaje localhost, 127.0.0.1 i privatne LAN opsege (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
 const isLocalNetwork = /^(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})$/.test(host);
 
-const wsUrl = isLocalNetwork ? `ws://${host}:3000` : `wss://icehockeybattlebeta.onrender.com`;
+const wsUrl = isLocalNetwork 
+    ? `ws://${host}:3000` 
+    : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
 
 const socket = new WebSocket(wsUrl);
 
