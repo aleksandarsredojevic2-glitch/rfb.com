@@ -431,7 +431,7 @@ setInterval(() => {
                     let nx = dx / magnitude, ny = dy / magnitude;
                     p.facingX = nx; p.facingY = ny; // pamti poslednji smer kretanja i kad stane
                     if (Math.sqrt(p.body.velocity.x ** 2 + p.body.velocity.y ** 2) < 4.4) {
-                        Matter.Body.applyForce(p.body, p.body.position, { x: nx * 0.08, y: ny * 0.08 });
+                        Matter.Body.applyForce(p.body, p.body.position, { x: nx * 0.009, y: ny * 0.009 });
                     }
                 }
             }
