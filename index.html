@@ -2,7 +2,7 @@
 <html lang="sr">
 <head>
     <meta charset="UTF-8">
-    <title>RFB | Real Football Battle</title>
+    <title>IHB | Ice Hockey Battle</title>
     <style>
 * {
     margin: 0;
@@ -273,6 +273,26 @@ canvas {
     border-color: #4d94ff;
     font-weight: bold;
 }
+#gameControlsPanel .controls-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+#gameControlsPanel .controls-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    gap: 16px;
+}
+#gameControlsPanel .controls-key {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-weight: bold;
+    white-space: nowrap;
+}
 #goal-limit-selector {
     margin-top: 20px;
     display: none;
@@ -399,6 +419,7 @@ canvas {
     <div id="gameTopBar">
         <div class="icon-btn" id="menuBtn" onclick="toggleMenuPanel()" title="Menu">☰</div>
         <div class="icon-btn" id="settingsBtn" onclick="toggleSettingsPanel()" title="Settings">⚙</div>
+        <div class="icon-btn" id="controlsBtn" onclick="toggleControlsPanel()" title="Controls">ℹ️</div>
         <div class="icon-btn" id="stopGameBtn" onclick="confirmStopGame()" title="Prekini igru" style="display: none;">⛔</div>
     </div>
 
@@ -428,6 +449,15 @@ canvas {
             <button data-zoom="1.5" onclick="setCameraZoom(1.5)">x1.5</button>
             <button data-zoom="1.75" onclick="setCameraZoom(1.75)">x1.75</button>
             <button data-zoom="2" onclick="setCameraZoom(2)">x2</button>
+        </div>
+    </div>
+
+    <div id="gameControlsPanel" class="game-panel">
+        <h3>CONTROLS</h3>
+        <div class="controls-list">
+            <div class="controls-row"><span class="controls-key">WASD / Arrows</span><span>Move</span></div>
+            <div class="controls-row"><span class="controls-key">Space / X</span><span>Pass</span></div>
+            <div class="controls-row"><span class="controls-key">Z</span><span>Shoot</span></div>
         </div>
     </div>
 
