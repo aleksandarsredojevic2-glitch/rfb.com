@@ -7,7 +7,7 @@ const port = window.location.port ? `:${window.location.port}` : '';
 // Prepoznaje localhost, 127.0.0.1 i privatne LAN opsege (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
 const isLocalNetwork = /^(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})$/.test(host);
 
-const wsUrl = isLocalNetwork ? `ws://${host}:3000` : `wss://rfb-com.onrender.com`;
+const wsUrl = isLocalNetwork ? `ws://${host}:3000` : `wss://icehockeybattlebeta.onrender.com`;
 
 const socket = new WebSocket(wsUrl);
 
@@ -431,56 +431,93 @@ socket.onmessage = (event) => {
     }
 }
 
-function drawGoalNet(x0, y0, y1, depth, dir) {
-    const x1 = x0 + dir * depth;
-    const left = Math.min(x0, x1), right = Math.max(x0, x1);
-    const height = y1 - y0;
+// Keš za mrežu gola - crta se JEDNOM na offscreen (nevidljivo) platno kad se
+// dimenzije saznaju, umesto da se ~150 linija iscrtava iznova SVAKI frejm (60x/sek).
+// Levi i desni gol koriste ISTI keširani canvas - desni se crta normalno,
+// levi se samo ogledalno (horizontalno flip-ovan) nalepi preko njega.
+let goalNetCache = { canvas: null, pad: 0, signature: null };
 
-    let shadowGrad = ctx.createLinearGradient(x0, 0, x1, 0);
+function buildGoalNetCanvas(depth, height) {
+    const pad = 6; // mala margina da stroke (lineWidth 4, kružnice) ne bude odsečen na ivici
+    const off = document.createElement('canvas');
+    off.width = depth + pad * 2;
+    off.height = height + pad * 2;
+    const octx = off.getContext('2d');
+
+    const x0 = pad, x1 = pad + depth, y0 = pad, y1 = pad + height;
+
+    // Senka dubine
+    let shadowGrad = octx.createLinearGradient(x0, 0, x1, 0);
     shadowGrad.addColorStop(0, "rgba(0,0,0,0.05)");
     shadowGrad.addColorStop(1, "rgba(0,0,0,0.4)");
-    ctx.fillStyle = shadowGrad;
-    ctx.fillRect(left, y0, right - left, height);
+    octx.fillStyle = shadowGrad;
+    octx.fillRect(x0, y0, x1 - x0, y1 - y0);
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(left, y0, right - left, height);
-    ctx.clip();
-    ctx.strokeStyle = "rgba(255,255,255,0.3)";
-    ctx.lineWidth = 1;
+    // Dijagonalna mrežasta šara (crta se samo OVDE, jednom, ne u glavnoj petlji)
+    octx.save();
+    octx.beginPath();
+    octx.rect(x0, y0, x1 - x0, y1 - y0);
+    octx.clip();
+    octx.strokeStyle = "rgba(255,255,255,0.3)";
+    octx.lineWidth = 1;
     const step = 11;
-    for (let d = -height; d < (right - left) + height; d += step) {
-        ctx.beginPath();
-        ctx.moveTo(left + d, y0);
-        ctx.lineTo(left + d + height, y1);
-        ctx.stroke();
+    for (let d = -height; d < (x1 - x0) + height; d += step) {
+        octx.beginPath();
+        octx.moveTo(x0 + d, y0);
+        octx.lineTo(x0 + d + height, y1);
+        octx.stroke();
 
-        ctx.beginPath();
-        ctx.moveTo(left + d, y1);
-        ctx.lineTo(left + d + height, y0);
-        ctx.stroke();
+        octx.beginPath();
+        octx.moveTo(x0 + d, y1);
+        octx.lineTo(x0 + d + height, y0);
+        octx.stroke();
     }
-    ctx.restore();
+    octx.restore();
 
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 4;
-    ctx.lineJoin = "round";
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x1, y0);
-    ctx.lineTo(x1, y1);
-    ctx.lineTo(x0, y1);
-    ctx.stroke();
+    // Okvir gola
+    octx.strokeStyle = "white";
+    octx.lineWidth = 4;
+    octx.lineJoin = "round";
+    octx.beginPath();
+    octx.moveTo(x0, y0);
+    octx.lineTo(x1, y0);
+    octx.lineTo(x1, y1);
+    octx.lineTo(x0, y1);
+    octx.stroke();
 
-    ctx.fillStyle = "white";
-    ctx.strokeStyle = "#1a1a1a";
-    ctx.lineWidth = 1.2;
+    // Prednji stativi
+    octx.fillStyle = "white";
+    octx.strokeStyle = "#1a1a1a";
+    octx.lineWidth = 1.2;
     [y0, y1].forEach(y => {
-        ctx.beginPath();
-        ctx.arc(x0, y, 4.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        octx.beginPath();
+        octx.arc(x0, y, 4.5, 0, Math.PI * 2);
+        octx.fill();
+        octx.stroke();
     });
+
+    return { canvas: off, pad: pad };
+}
+
+// Nalepi keširanu mrežu na oba gola. Poziva se svaki frejm, ali sad je to samo
+// jeftin drawImage (2x), ne ponovno iscrtavanje cele mreže linija po linija.
+function drawGoalNets(s, g) {
+    const netSignature = g.depth + '|' + g.h;
+    if (goalNetCache.signature !== netSignature) {
+        const built = buildGoalNetCanvas(g.depth, g.h);
+        goalNetCache = { canvas: built.canvas, pad: built.pad, signature: netSignature };
+    }
+    const cache = goalNetCache;
+
+    // Desni gol - mreža ide udesno (canvas je već izgrađen u tom "smeru")
+    ctx.drawImage(cache.canvas, s.right - cache.pad, g.y - cache.pad);
+
+    // Levi gol - isti canvas, samo horizontalno ogledalo (mreža ide ulevo)
+    ctx.save();
+    ctx.translate(s.left, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(cache.canvas, -cache.pad, g.y - cache.pad);
+    ctx.restore();
 }
 
 function drawVectorField() {
@@ -555,8 +592,7 @@ function drawVectorField() {
     ctx.textBaseline = "middle";
     ctx.fillText("", centerX, centerY + 4);
 
-    drawGoalNet(s.left, g.y, g.y + g.h, g.depth, -1);
-    drawGoalNet(s.right, g.y, g.y + g.h, g.depth, 1);
+    drawGoalNets(s, g);
 }
 
 function goToRoomScreen() {
